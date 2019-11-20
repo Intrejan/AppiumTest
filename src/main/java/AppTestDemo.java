@@ -27,20 +27,20 @@ public class AppTestDemo {
         }
         driver.manage().timeouts().implicitlyWait(8, TimeUnit.SECONDS); //设置尝试定位控件的最长时间为8s,也就是最多尝试8s
         String pageSource = driver.getPageSource();
-
-
-        DFSTest(pageSource,driver);
+        Page page = new Page(pageSource,"");
+        DFSTest(page,driver);
         driver.closeApp();
     }
 
     /**
      * 对App的页面进行深度优先遍历测试
-     * @param pageSource 当前页面的xml文件，需要对其进行处理，获得可以进行测试的元素的位置。
+     * @param page 当前页面的对象，需要对其进行处理，获得可以进行测试的元素的位置。
      */
-    private void DFSTest(String pageSource,AppiumDriver<org.openqa.selenium.WebElement> driver) {
+    private void DFSTest(Page page,AppiumDriver<org.openqa.selenium.WebElement> driver) {
+        String pageSource = page.getPageSource();       //获得当前页面的xml
+        String fatherPage = pageSource;     //将新的页面的父页面设置为当前页面
 
-        List<Target> targetList = new ArrayList<Target>();
-
+        List<Target> targetList = new ArrayList<Target>();      //目标元素列表
         try{
             Document doc = DocumentHelper.parseText(pageSource);
             Element root = doc.getRootElement();
@@ -52,11 +52,11 @@ public class AppTestDemo {
             String type = target.getType();
             String value = target.getValue();
             if ("text".equals(type)) {
-                driver.findElementsByName(value).get(0).click();
+                //driver.findElementsByName(value).get(0).click();
             }else if("resource-id".equals(type)){
-                driver.findElementsById(value).get(0).click();
+                //driver.findElementsById(value).get(0).click();
             }else if("content-desc".equals(type)){
-                driver.findElementsByAccessibilityId(value).get(0).click();
+                //driver.findElementsByAccessibilityId(value).get(0).click();
             }
 
             System.out.println(target.getType() + " : " + target.getValue());
@@ -180,7 +180,7 @@ public class AppTestDemo {
      * @param args 需要的参数有四个 ，分别为应用路径，UDID，Url，运行最大时长
      */
     public static void main(String[] args) {
-        String apkPath = "apk/IThouse.apk";
+        String apkPath = "apk/GeekNews.apk";
         String UDID = "emulator-5554";
         String appiumUrl = "http://127.0.0.1:4723/wd/hub";
         int runtime = 3600;
