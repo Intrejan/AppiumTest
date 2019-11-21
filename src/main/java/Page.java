@@ -6,11 +6,11 @@ class Page {
         this.fatherPage=fatherPage;
     }
 
-    public String getFatherPage() {
+    String getFatherPage() {
         return fatherPage;
     }
 
-    public String getPageSource() {
+    String getPageSource() {
         return pageSource;
     }
 }

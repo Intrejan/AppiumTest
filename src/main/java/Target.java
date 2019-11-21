@@ -14,10 +14,10 @@ class Target {
         this.value = value;
     }
 
-    public String getType() {
+    String getType() {
         return type;
     }
-    public String getValue() {
+    String getValue() {
         return value;
     }
 }

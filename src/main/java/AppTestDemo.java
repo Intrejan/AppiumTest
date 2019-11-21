@@ -1,6 +1,7 @@
 import io.appium.java_client.AppiumDriver;
 import org.dom4j.Document;
 import org.dom4j.DocumentHelper;
+import org.openqa.selenium.WebElement;
 import org.openqa.selenium.remote.DesiredCapabilities;
 
 import java.io.File;
@@ -27,18 +28,56 @@ public class AppTestDemo {
         }
         driver.manage().timeouts().implicitlyWait(8, TimeUnit.SECONDS); //设置尝试定位控件的最长时间为8s,也就是最多尝试8s
         String pageSource = driver.getPageSource();
+
+        if(pageSource.contains("确定")){
+            Prepare(pageSource, driver);
+        }
+
+        pageSource = driver.getPageSource();
         Page page = new Page(pageSource,"");
-        DFSTest(page,driver);
+        //深度优先遍历
+        DFSTest(page,driver,0);
         driver.closeApp();
     }
 
     /**
+     * 这个方法对待测app进行预处理，包括设置权限等内容
+     * @param pageSource 页面的xml
+     */
+    private void Prepare(String pageSource, AppiumDriver<WebElement> driver) {
+        try{
+            driver.findElementsByName("确定").get(0).click();
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            try{
+                driver.findElementsByName("确定").get(0).click();
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+    }
+
+    private ArrayList<String> stack = new ArrayList<String>();
+    /**
      * 对App的页面进行深度优先遍历测试
      * @param page 当前页面的对象，需要对其进行处理，获得可以进行测试的元素的位置。
+     * @param level 当前深度
      */
-    private void DFSTest(Page page,AppiumDriver<org.openqa.selenium.WebElement> driver) {
+    private void DFSTest(Page page,AppiumDriver<org.openqa.selenium.WebElement> driver,int level) {
+
+        try {
+            Thread.sleep(2000);		//等待2s，待新页面完全启动
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
         String pageSource = page.getPageSource();       //获得当前页面的xml
-        String fatherPage = pageSource;     //将新的页面的父页面设置为当前页面
 
         List<Target> targetList = new ArrayList<Target>();      //目标元素列表
         try{
@@ -48,19 +87,227 @@ public class AppTestDemo {
         } catch (Exception e) {
             e.printStackTrace();
         }
-        for (Target target : targetList) {
-            String type = target.getType();
-            String value = target.getValue();
-            if ("text".equals(type)) {
-                //driver.findElementsByName(value).get(0).click();
-            }else if("resource-id".equals(type)){
-                //driver.findElementsById(value).get(0).click();
-            }else if("content-desc".equals(type)){
-                //driver.findElementsByAccessibilityId(value).get(0).click();
+
+        List<Target> new_targetList = new ArrayList<Target>();
+
+        if(targetList.size()>0){
+
+            if(targetList.get(0).getValue().equals("android.widget.ImageButton") ){
+                for(int i=1;i<targetList.size();i++){
+                    new_targetList.add(targetList.get(i));
+                }
+                new_targetList.add(targetList.get(0));
+            }
+            else{
+                new_targetList=targetList;
             }
 
-            System.out.println(target.getType() + " : " + target.getValue());
         }
+
+        if(new_targetList.size()>0){
+            for(Target all_target:new_targetList){
+                System.err.println(all_target.getType() + " : " + all_target.getValue());
+            }
+        }
+
+        for (Target target : new_targetList) {
+            String type = target.getType();
+            String value = target.getValue();
+            int state = 0;
+            String nowPageSource = "";
+            if ("text".equals(type) && !stack.contains(value)) {
+                if(value.contains("输入") || value.contains("搜索")){
+                    try {
+                        System.out.print(target.getType() + " : " + target.getValue());
+                        stack.add(value);
+                        driver.findElementsByName(value).get(0).sendKeys("123456");
+                        driver.hideKeyboard();
+                    } catch (Exception e) {
+
+                        //driver.navigate().back();
+                        continue;
+                    }
+                }else{
+                    try{
+                        System.out.print(target.getType() + " : " + target.getValue());
+                        stack.add(value);
+                        if(driver.findElementsByName(value).size()>1){
+                            driver.findElementsByName(value).get(1).click();
+                        }else{
+                            driver.findElementsByName(value).get(0).click();
+                        }
+                    } catch (Exception e) {
+                        driver.findElementsByClassName("android.widget.ImageButton");
+                        try{
+                            driver.findElementsByName(value).get(0).click();
+                        }
+                        catch (Exception ex) {
+                            continue;
+                        }
+                        //driver.navigate().back();
+                    }
+                }
+
+                try {
+                    Thread.sleep(1000);		//等待2s，待应用完全启动
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                nowPageSource = driver.getPageSource();
+                state = comparePage(nowPageSource,page);
+                System.err.println(state);
+            }
+            else if("content-desc".equals(type) && !stack.contains(value)){
+                if(!value.contains("转到")){
+                    stack.add(value);
+                }try{
+                    System.out.print(target.getType() + " : " + target.getValue());
+                    driver.findElementsByAccessibilityId(value).get(0).click();
+                } catch (Exception e) {
+                    //driver.navigate().back();
+                    continue;
+                }
+                try {
+                    Thread.sleep(1000);		//等待6s，待应用完全启动
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                nowPageSource = driver.getPageSource();
+                state = comparePage(nowPageSource,page);
+                System.err.println(state);
+            }
+            else if("class".equals(type)){
+                try{
+                    System.out.print(target.getType() + " : " + target.getValue());
+                    driver.findElementsByClassName(value).get(0).click();
+                } catch (Exception e) {
+                    driver.navigate().back();
+                    driver.findElementsByClassName(value).get(0).click();
+                }
+                try {
+                    Thread.sleep(1000);		//等待6s，待应用完全启动
+                } catch (InterruptedException e) {
+                    e.printStackTrace();
+                }
+                nowPageSource = driver.getPageSource();
+                state = comparePage(nowPageSource,page);
+//                if(state!=2){
+//                    driver.findElementsByClassName(value).get(0).click();
+//                    nowPageSource = driver.getPageSource();
+//                    state = comparePage(nowPageSource,page);
+//                }
+                System.err.println(state);
+
+            }
+
+            if(state == 2){
+                return;
+            }
+            else if(state == 1){
+                Page nextPage = new Page(nowPageSource, pageSource);
+                DFSTest(nextPage,driver,level+1);
+            }
+        }
+
+//        driver.navigate().back();
+//        System.err.println("back");
+
+        try {
+            Thread.sleep(1000);		//等待6s，待应用完全启动
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+    }
+
+    /**
+     * 此方法用于判断两个页面的相似程度，用来决定是否进行了页面的跳转。
+     * @param nowPageSource 经过操作之后的页面的xml
+     * @param page 当前页面对象
+     * @return 0：没有进行页面的跳转；1 跳入的新的页面；2 回到父亲页面。
+     */
+    private int comparePage(String nowPageSource, Page page) {
+        boolean isEqualRoot = true;
+        boolean isEqualFather = true;
+        String pageSource = page.getPageSource();
+        String fatherSource = page.getFatherPage();
+        int state=0;
+        try{
+            //读取操作后的当前页面
+            Document now_doc = DocumentHelper.parseText(nowPageSource);
+            Element now_root = now_doc.getRootElement();
+            ArrayList<String> now_count = new ArrayList<String>();
+            now_count = CalcNode(now_root,now_count);
+
+            //读取原先的页面
+            Document doc = DocumentHelper.parseText(pageSource);
+            Element root = doc.getRootElement();
+            ArrayList<String> root_count = new ArrayList<String>();
+            root_count= CalcNode(root,root_count);
+
+            //读取父亲页面
+            ArrayList<String> father_root_count = new ArrayList<String>();
+            if(fatherSource.length() < 1){
+                father_root_count.add("launched Activity");
+            } else{
+                Document father_doc = DocumentHelper.parseText(fatherSource);
+                Element father_root = father_doc.getRootElement();
+                father_root_count = CalcNode(father_root,father_root_count);
+            }
+
+            if(Math.abs(now_count.size() - root_count.size()) <= 1){
+//                for(int i=0;i<root_count.size();i++){
+//                    if(!now_count.get(i).equals(root_count.get(i))){
+//                        isEqualRoot = false;break;
+//                    }
+//                }
+                isEqualRoot = true;
+            }else{
+                isEqualRoot = false;
+            }
+
+            if(Math.abs(now_count.size()-father_root_count.size()) <= 1){
+//                for(int i=0;i<father_root_count.size();i++){
+//                    if(!now_count.get(i).equals(father_root_count.get(i))){
+//                        isEqualFather = false;break;
+//                    }
+//                }
+                isEqualFather = true;
+            }else{
+                isEqualFather = false;
+            }
+
+        if(fatherSource.contains("id/design_navigation_view") && nowPageSource.contains("id/design_navigation_view")){
+            isEqualFather = true;
+        }
+
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+        if(isEqualRoot){
+            state = 0;
+        }else if(isEqualFather){
+            state = 2;
+        }else{
+            state = 1;
+        }
+        return state;
+    }
+
+    /**
+     *  此方法用于统计页面中所有节点的名称和数量，并且以此作为依据来判断是否进行了页面的跳转。
+     * @param root 页面根节点
+     * @param result 结果
+     * @return 一个节点arrayList。
+     */
+    private ArrayList<String> CalcNode(Element root, ArrayList<String> result) {
+        if(root==null)return result;
+        //System.out.println(root.getName());
+        result.add(root.getName());
+        List<Element> childNodes = root.elements();
+        for (Element e : childNodes) {
+            CalcNode(e,result);
+        }
+        return result;
     }
 
     /**
@@ -70,27 +317,100 @@ public class AppTestDemo {
      * @return targetList
      */
     private static List<Target> readNode(Element root,List<Target> targetList) {
+        List<Target> target_end = new ArrayList<Target>();
         if (root == null) return targetList;
         // 获取属性
         List<Attribute> attrs = root.attributes();
+        Attrs attrs1 = new Attrs("","","","","","");
         if (attrs != null && attrs.size() > 0) {
             for (Attribute attr : attrs) {
-                if(attr.getName().equals("resource-id") && attr.getValue().length()>0){
-                    Target target = new Target("resource-id",attr.getValue());
-                    targetList.add(target);
-                    break;
+
+                if(attr.getName().equals("text")){
+                    attrs1.setText(attr.getValue());
                 }
-                else if(attr.getName().equals("text") && attr.getValue().length()>0){
-                    Target target = new Target("text",attr.getValue());
-                    targetList.add(target);
-                    break;
+                if(attr.getName().equals("resource-id")){
+                    attrs1.setResource_id(attr.getValue());
                 }
-                else if(attr.getName().equals("content-desc") && attr.getValue().length()>0){
-                    Target target = new Target("content-desc",attr.getValue());
-                    targetList.add(target);
+                if(attr.getName().equals("class")){
+                    attrs1.setC_lass(attr.getValue());
+                }
+                if(attr.getName().equals("content-desc")){
+                    attrs1.setContent_desc(attr.getValue());
+                }
+                if(attr.getName().equals("clickable")){
+                    attrs1.setClickable(attr.getValue());
+                }
+                if(attr.getName().equals("selected")){
+                    attrs1.setSelected(attr.getValue());
+                }
+            }
+            String text = attrs1.getText();
+            String content_desc = attrs1.getContent_desc();
+            boolean isNet = false;
+            if(text.length()>0){
+                if(Character.isDigit(text.charAt(0))){
+                    isNet = true;
+                }
+            }
+            if( text.contains("加载失败")||text.contains("Git")||text.contains("反馈") || text.contains("@") || text.contains("www") || text.contains("分享")){
+                isNet = true;
+            }
+            if(content_desc.contains("Git")||content_desc.contains("反馈") || content_desc.contains("@") || content_desc.contains("www") || content_desc.contains("分享")){
+                isNet = true;
+            }
+            if(!attrs1.getC_lass().equals("android.view.View") && !attrs1.getText().equals("夜间模式") && !isNet){
+                if(attrs1.getText().length()>0){
+                    if(!attrs1.getC_lass().equals("android.widget.TextView") || attrs1.getResource_id().length()>0){
+                        if(attrs1.getText().length() <= 5 || attrs1.getClickable().equals("true")){
+                            Target target = new Target("text",attrs1.getText());
+                            boolean have = false;
+                            for(Target t:targetList){
+                                if (t.getType().equals(target.getType()) && t.getValue().equals(target.getValue())) {
+                                    have = true;
+                                    break;
+                                }
+                            }
+                            if(!have){
+                                targetList.add(target);
+                            }
+                        }
+                    }
+                    else{
+                        Target target = new Target("text",attrs1.getText());
+                        target_end.add(target);
+                    }
+                }
+                else if(attrs1.getC_lass().equals("android.widget.ImageButton") && attrs1.getText().length()==0 && attrs1.getResource_id().length()==0){
+                    Target target = new Target("class","android.widget.ImageButton");
+                    boolean have = false;
+                    for(Target t:targetList){
+                        if (t.getType().equals(target.getType()) && t.getValue().equals(target.getValue())) {
+                            have = true;
+                            break;
+                        }
+                    }
+                    if(!have){
+                        targetList.add(target);
+                    }
+                }
+                else if(attrs1.getContent_desc().length()>0){
+                    Target target = new Target("content-desc",attrs1.getContent_desc());
+                    boolean have = false;
+                    for(Target t:targetList){
+                        if (t.getType().equals(target.getType()) && t.getValue().equals(target.getValue())) {
+                            have = true;
+                            break;
+                        }
+                    }
+                    if(!have){
+                        targetList.add(target);
+                    }
                 }
             }
         }
+
+        targetList.addAll(target_end);
+
         List<Element> childNodes = root.elements();
         for (Element e : childNodes) {
             readNode(e,targetList);
@@ -122,7 +442,7 @@ public class AppTestDemo {
         capabilities.setCapability("appPackage", appPackage);
         capabilities.setCapability("appActivity", appActivity);
         capabilities.setCapability("noSign", "true");
-        capabilities.setCapability("noReset","true");
+        //capabilities.setCapability("noReset","true");
 
         //设置apk路径
         capabilities.setCapability("app", app.getAbsolutePath());
@@ -174,13 +494,12 @@ public class AppTestDemo {
         test(initAppiumTest(apkPath,UDID,appiumUrl));
     }
 
-
     /**
      * main方法，用于启动程序
      * @param args 需要的参数有四个 ，分别为应用路径，UDID，Url，运行最大时长
      */
     public static void main(String[] args) {
-        String apkPath = "apk/GeekNews.apk";
+        String apkPath = "apk/Bihudaily.apk";
         String UDID = "emulator-5554";
         String appiumUrl = "http://127.0.0.1:4723/wd/hub";
         int runtime = 3600;
@@ -191,8 +510,5 @@ public class AppTestDemo {
         }else{
             main.start(apkPath,UDID,appiumUrl);
         }
-
     }
-
-
 }
