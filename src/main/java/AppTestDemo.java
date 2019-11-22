@@ -29,11 +29,16 @@ public class AppTestDemo {
         driver.manage().timeouts().implicitlyWait(8, TimeUnit.SECONDS); //设置尝试定位控件的最长时间为8s,也就是最多尝试8s
         String pageSource = driver.getPageSource();
 
-        if(pageSource.contains("确定")){
+        if(pageSource.contains("确定") || pageSource.contains("允许")){
             Prepare(pageSource, driver);
         }
 
-        pageSource = driver.getPageSource();
+        try {
+            pageSource = driver.getPageSource();
+        } catch (Exception e) {
+            System.err.print("");
+        }
+
         Page page = new Page(pageSource,"");
         //深度优先遍历
         DFSTest(page,driver,0);
@@ -47,18 +52,14 @@ public class AppTestDemo {
     private void Prepare(String pageSource, AppiumDriver<WebElement> driver) {
         try{
             driver.findElementsByName("确定").get(0).click();
-            try {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            try{
-                driver.findElementsByName("确定").get(0).click();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
         } catch (Exception e) {
-            e.printStackTrace();
+            System.out.println("未定位到‘确定’。");
+        }
+        try{
+            driver.findElementsByName("允许").get(0).click();
+
+        } catch (Exception e) {
+            System.out.println("未定位到‘允许’。");
         }
 
     }
@@ -101,10 +102,12 @@ public class AppTestDemo {
             else{
                 new_targetList=targetList;
             }
-
         }
 
         if(new_targetList.size()>0){
+            if(new_targetList.get(0).getValue().equals("登录")){
+                new_targetList.add(new Target("text","登录"));
+            }
             for(Target all_target:new_targetList){
                 System.err.println(all_target.getType() + " : " + all_target.getValue());
             }
@@ -116,7 +119,7 @@ public class AppTestDemo {
             int state = 0;
             String nowPageSource = "";
             if ("text".equals(type) && !stack.contains(value)) {
-                if(value.contains("输入") || value.contains("搜索")){
+                if(value.contains("输入") || value.contains("搜索") || value.contains("search")){
                     try {
                         System.out.print(target.getType() + " : " + target.getValue());
                         stack.add(value);
@@ -130,10 +133,12 @@ public class AppTestDemo {
                 }else{
                     try{
                         System.out.print(target.getType() + " : " + target.getValue());
-                        stack.add(value);
                         if(driver.findElementsByName(value).size()>1){
                             driver.findElementsByName(value).get(1).click();
                         }else{
+                            if(!value.equals("取消") && !value.equals("确定")){
+                                stack.add(value);
+                            }
                             driver.findElementsByName(value).get(0).click();
                         }
                     } catch (Exception e) {
@@ -182,7 +187,9 @@ public class AppTestDemo {
                     driver.findElementsByClassName(value).get(0).click();
                 } catch (Exception e) {
                     driver.navigate().back();
-                    driver.findElementsByClassName(value).get(0).click();
+                    try{driver.findElementsByClassName(value).get(0).click();} catch (Exception ex) {
+                        continue;
+                    }
                 }
                 try {
                     Thread.sleep(1000);		//等待6s，待应用完全启动
@@ -191,11 +198,6 @@ public class AppTestDemo {
                 }
                 nowPageSource = driver.getPageSource();
                 state = comparePage(nowPageSource,page);
-//                if(state!=2){
-//                    driver.findElementsByClassName(value).get(0).click();
-//                    nowPageSource = driver.getPageSource();
-//                    state = comparePage(nowPageSource,page);
-//                }
                 System.err.println(state);
 
             }
@@ -254,24 +256,22 @@ public class AppTestDemo {
                 father_root_count = CalcNode(father_root,father_root_count);
             }
 
-            if(Math.abs(now_count.size() - root_count.size()) <= 1){
-//                for(int i=0;i<root_count.size();i++){
-//                    if(!now_count.get(i).equals(root_count.get(i))){
-//                        isEqualRoot = false;break;
-//                    }
-//                }
-                isEqualRoot = true;
+            if(Math.abs(now_count.size() - root_count.size()) <= 0){
+                for(int i=0;i<root_count.size();i++){
+                    if(!now_count.get(i).equals(root_count.get(i))){
+                        isEqualRoot = false;break;
+                    }
+                }
             }else{
                 isEqualRoot = false;
             }
 
-            if(Math.abs(now_count.size()-father_root_count.size()) <= 1){
-//                for(int i=0;i<father_root_count.size();i++){
-//                    if(!now_count.get(i).equals(father_root_count.get(i))){
-//                        isEqualFather = false;break;
-//                    }
-//                }
-                isEqualFather = true;
+            if(Math.abs(now_count.size()-father_root_count.size()) <= 0){
+                for(int i=0;i<father_root_count.size();i++){
+                    if(!now_count.get(i).equals(father_root_count.get(i))){
+                        isEqualFather = false;break;
+                    }
+                }
             }else{
                 isEqualFather = false;
             }
@@ -281,7 +281,7 @@ public class AppTestDemo {
         }
 
         } catch (Exception e) {
-            e.printStackTrace();
+            System.err.println("获取页面XML解析失败");
         }
         if(isEqualRoot){
             state = 0;
@@ -348,14 +348,21 @@ public class AppTestDemo {
             String content_desc = attrs1.getContent_desc();
             boolean isNet = false;
             if(text.length()>0){
-                if(Character.isDigit(text.charAt(0))){
-                    isNet = true;
+                for(char c:text.toCharArray()){
+                    if(Character.isDigit(c)){
+                    isNet = true;break;
+                    }
                 }
             }
-            if( text.contains("加载失败")||text.contains("Git")||text.contains("反馈") || text.contains("@") || text.contains("www") || text.contains("分享")){
+
+            if( text.contains("邮件") || text.contains("隐藏") || text.contains("下载")||text.contains("加载失败")
+                    ||text.contains("G")||text.contains("反馈") || text.contains("@") || text.contains("www")
+                    || text.contains("分享")){
                 isNet = true;
             }
-            if(content_desc.contains("Git")||content_desc.contains("反馈") || content_desc.contains("@") || content_desc.contains("www") || content_desc.contains("分享")){
+            if(content_desc.contains("下载")|| content_desc.contains("G")||content_desc.contains("反馈")
+                    || content_desc.contains("@") || content_desc.contains("www")
+                    || content_desc.contains("分享")){
                 isNet = true;
             }
             if(!attrs1.getC_lass().equals("android.view.View") && !attrs1.getText().equals("夜间模式") && !isNet){
@@ -499,7 +506,7 @@ public class AppTestDemo {
      * @param args 需要的参数有四个 ，分别为应用路径，UDID，Url，运行最大时长
      */
     public static void main(String[] args) {
-        String apkPath = "apk/Bihudaily.apk";
+        String apkPath = "apk/Leafpic.apk";
         String UDID = "emulator-5554";
         String appiumUrl = "http://127.0.0.1:4723/wd/hub";
         int runtime = 3600;
