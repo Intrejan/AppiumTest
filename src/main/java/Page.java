@@ -1,3 +1,6 @@
+/**
+ * 页面对象，包含当前页面和父页面
+ */
 class Page {
     private String pageSource;
     private String fatherPage;

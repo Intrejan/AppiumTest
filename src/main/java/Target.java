@@ -1,3 +1,6 @@
+/**
+ * 点击元素对象，包含种类的值，用于定位。
+ */
 class Target {
     private String type;
     private String value;

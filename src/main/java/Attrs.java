@@ -1,3 +1,6 @@
+/**
+ * xml每个节点对象，包含以下属性
+ */
 class Attrs {
     private String text;
     private String c_lass;

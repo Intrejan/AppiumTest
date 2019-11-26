@@ -82,8 +82,8 @@ public class AutoTest {
         } catch (InterruptedException e) {
             e.printStackTrace();
         }
-        //最多深度为7层.
-        if(level == 7){
+        //最多深度为15层.
+        if(level == 15){
             driver.navigate().back();
             try {
                 Thread.sleep(2000);		//等待2s，待新页面完全启动
@@ -367,7 +367,7 @@ public class AutoTest {
                     }
                 }
             }
-
+            //防止程序进入app之外的网页
             if( text.contains("邮件") || text.contains("隐藏") || text.contains("下载")||text.contains("加载失败")
                     ||text.contains("G")||text.contains("反馈") || text.contains("@") || text.contains("www")
                     || text.contains("分享")){
